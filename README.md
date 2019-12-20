@@ -249,6 +249,11 @@ papers and the code in terms of fomula presentation. If you have problems in und
     <td>Yu et al., A Social Recommender Based on Factorization and Distance Metric Learning, IEEE Access 2017.
      </td>
   </tr>
+    <tr>
+    <td scope="row">SRRL</td>
+    <td>Lu et al., SRRL: Select Reliable Friends for Social Recommendation with Reinforcement Learning, ICONIP 2019.
+     </td>
+  </tr>
   </table>
 
   </br>
@@ -366,6 +371,10 @@ on Generative Adversarial Networks, CIKM 2018.
 <tr>
 <td>RSTE</td>    <td>SoRec</td>      <td>SoReg</td>     <td>SocialMF</td>   <td>SBPR</td>
 <td>SREE</td>    <td>LOCABAL</td>    <td>SocialFD</td>  <td>TBPR</td>       <td>SERec</td>
+</tr>
+<tr>
+<td>SRRL</td>     <td></td>     <td></td>   <td></td>     <td></td>
+<td></td>     <td></td>   <td></td>     <td></td> <td></td>
 </tr>
 <tr>
 <th colspan="10" align="left">Network Embedding based Recommenders</th>
