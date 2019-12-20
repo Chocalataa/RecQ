@@ -12,7 +12,7 @@ class IterativeRecommender(Recommender):
     def readConfiguration(self):
         super(IterativeRecommender, self).readConfiguration()
         # set the reduced dimension
-        self.embed_size = int(self.config['num.factors'])
+        self.k = int(self.config['num.factors'])
         # set maximum iteration
         self.maxIter = int(self.config['num.max.iter'])
         # set learning rate
@@ -27,14 +27,14 @@ class IterativeRecommender(Recommender):
 
     def printAlgorConfig(self):
         super(IterativeRecommender, self).printAlgorConfig()
-        print 'Reduced Dimension:',self.embed_size
+        print 'Reduced Dimension:',self.k
         print 'Maximum Iteration:',self.maxIter
         print 'Regularization parameter: regU %.3f, regI %.3f, regB %.3f' %(self.regU,self.regI,self.regB)
         print '='*80
 
     def initModel(self):
-        self.P = np.random.rand(len(self.data.user), self.embed_size)/3 # latent user matrix
-        self.Q = np.random.rand(len(self.data.item), self.embed_size)/3  # latent item matrix
+        self.P = np.random.rand(len(self.data.user), self.k)/10 # latent user matrix
+        self.Q = np.random.rand(len(self.data.item), self.k)/10# latent item matrix
         self.loss, self.lastLoss = 0, 0
 
 
@@ -45,17 +45,11 @@ class IterativeRecommender(Recommender):
         self.v_idx = tf.placeholder(tf.int32, [None], name="v_idx")
         self.r = tf.placeholder(tf.float32, [None], name="rating")
 
-        self.U = tf.Variable(tf.truncated_normal(shape=[self.num_users, self.embed_size], stddev=0.005), name='U')
-        self.V = tf.Variable(tf.truncated_normal(shape=[self.num_items, self.embed_size], stddev=0.005), name='V')
+        self.U = tf.Variable(tf.truncated_normal(shape=[self.num_users, self.k], stddev=0.005), name='U')
+        self.V = tf.Variable(tf.truncated_normal(shape=[self.num_items, self.k], stddev=0.005), name='V')
 
-        self.user_biases = tf.Variable(tf.truncated_normal(shape=[self.num_users, 1], stddev=0.005), name='U')
-        self.item_biases = tf.Variable(tf.truncated_normal(shape=[self.num_items, 1], stddev=0.005), name='U')
-
-        self.user_bias = tf.nn.embedding_lookup(self.user_biases, self.u_idx)
-        self.item_bias = tf.nn.embedding_lookup(self.item_biases, self.v_idx)
-
-        self.user_embedding = tf.nn.embedding_lookup(self.U, self.u_idx)
-        self.item_embedding = tf.nn.embedding_lookup(self.V, self.v_idx)
+        self.U_embed = tf.nn.embedding_lookup(self.U, self.u_idx)
+        self.V_embed = tf.nn.embedding_lookup(self.V, self.v_idx)
 
 
     def saveModel(self):
@@ -71,7 +65,7 @@ class IterativeRecommender(Recommender):
             else:
                 self.lRate *= 0.5
 
-        if self.lRate > self.maxLRate > 0:
+        if self.maxLRate > 0 and self.lRate > self.maxLRate:
             self.lRate = self.maxLRate
 
 
@@ -90,7 +84,7 @@ class IterativeRecommender(Recommender):
     def predictForRanking(self,u):
         'used to rank all the items for the user'
         if self.data.containsUser(u):
-            return self.Q.dot(self.P[self.data.user[u]])
+            return (self.Q).dot(self.P[self.data.user[u]])
         else:
             return [self.data.globalMean]*self.num_items
 
@@ -105,17 +99,27 @@ class IterativeRecommender(Recommender):
                   %(self.algorName,self.foldInfo,iter,self.loss,deltaLoss,self.lRate)
             measure = self.ranking_performance()
         else:
+
             measure = self.rating_performance()
+
+
+
             print '%s %s iteration %d: loss = %.4f, delta_loss = %.5f learning_Rate = %.5f %5s %5s' \
                   % (self.algorName, self.foldInfo, iter, self.loss, deltaLoss, self.lRate, measure[0].strip()[:11], measure[1].strip()[:12])
+
+
         #check if converged
+        MAE = float(measure[0].strip()[4:11])
         cond = abs(deltaLoss) < 1e-3
         converged = cond
         if not converged:
             self.updateLearningRate(iter)
         self.lastLoss = self.loss
         shuffle(self.data.trainingData)
+        # return converged
+
         return converged
+
 
     def rating_performance(self):
 
@@ -137,7 +141,7 @@ class IterativeRecommender(Recommender):
         return self.measure
 
     def ranking_performance(self):
-        N = 20
+        N = 10
         recList = {}
         testSample = {}
         for user in self.data.testSet_u:
@@ -183,17 +187,13 @@ class IterativeRecommender(Recommender):
                             ind = r
                             break
                 # ind = bisect(recommendations, itemSet[item])
-                            # move the items backwards
-                if ind < N - 2:
-                    recommendations[ind + 2:] = recommendations[ind + 1:-1]
-                    resNames[ind + 2:] = resNames[ind + 1:-1]
                 if ind < N - 1:
                     recommendations[ind + 1] = itemSet[item]
                     resNames[ind + 1] = item
             recList[user] = zip(resNames, recommendations)
-        measure = Measure.rankingMeasure(testSample, recList, [10,20])
+        measure = Measure.rankingMeasure(testSample, recList, [10])
         print '-'*80
-        print 'Ranking Performance '+self.foldInfo+' (Top-10 On 1000 sampled users)'
+        print 'Ranking Performance '+self.foldInfo+' (Top-10 On 300 sampled users)'
         for m in measure[1:]:
             print m.strip()
         print '-'*80

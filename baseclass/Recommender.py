@@ -8,7 +8,7 @@
 # (at your option) any later version.
 from data.rating import RatingDAO
 from tool.file import FileIO
-import pandas as pd
+from tool.qmath import denormalize
 from tool.config import Config,LineConfig
 from os.path import abspath
 from time import strftime,localtime,time
@@ -97,7 +97,7 @@ class Recommender(object):
             return round(prediction,3)
 
     def evalRatings(self):
-        res = list() #used to contain the text of the result
+        res = [] #used to contain the text of the result
         res.append('userId  itemId  original  prediction\n')
         #predict
         for ind,entry in enumerate(self.data.testData):
@@ -166,6 +166,7 @@ class Recommender(object):
             for item in ratedList:
                 del itemSet[item]
 
+            #rawRes[user] = itemSet
             Nrecommendations = []
             for item in itemSet:
                 if len(Nrecommendations) < N:
@@ -178,30 +179,27 @@ class Recommender(object):
             resNames = [item[0] for item in Nrecommendations]
 
 
-            # find the N biggest scores
+            # find the K biggest scores
             for item in itemSet:
                 ind = N
                 l = 0
                 r = N - 1
 
                 if recommendations[r] < itemSet[item]:
-                    while r>=l:
-                        mid = (r-l) / 2 + l
+                    while True:
+                        mid = (l + r) / 2
                         if recommendations[mid] >= itemSet[item]:
                             l = mid + 1
                         elif recommendations[mid] < itemSet[item]:
                             r = mid - 1
-
                         if r < l:
                             ind = r
                             break
-                #move the items backwards
-                if ind < N - 2:
-                    recommendations[ind+2:]=recommendations[ind+1:-1]
-                    resNames[ind+2:]=resNames[ind+1:-1]
+                # ind = bisect(recommendations, itemSet[item])
+
                 if ind < N - 1:
-                    recommendations[ind+1] = itemSet[item]
-                    resNames[ind+1] = item
+                    recommendations[ind + 1] = itemSet[item]
+                    resNames[ind + 1] = item
 
             recList[user] = zip(resNames, recommendations)
 
@@ -237,12 +235,12 @@ class Recommender(object):
             self.printAlgorConfig()
         #load model from disk or build model
         if self.isLoadModel:
-            print 'Loading model %s...' %self.foldInfo
+            print 'Loading model %s...' %(self.foldInfo)
             self.loadModel()
         else:
-            print 'Initializing model %s...' %self.foldInfo
+            print 'Initializing model %s...' %(self.foldInfo)
             self.initModel()
-            print 'Building Model %s...' %self.foldInfo
+            print 'Building Model %s...' %(self.foldInfo)
             try:
                 import tensorflow
                 if self.evalSettings.contains('-tf'):
@@ -253,7 +251,7 @@ class Recommender(object):
                 self.buildModel()
 
         #preict the ratings or item ranking
-        print 'Predicting %s...' %self.foldInfo
+        print 'Predicting %s...' %(self.foldInfo)
         if self.ranking.isMainOn():
             self.evalRanking()
         else:
@@ -261,7 +259,7 @@ class Recommender(object):
 
         #save model
         if self.isSaveModel:
-            print 'Saving model %s...' %self.foldInfo
+            print 'Saving model %s...' %(self.foldInfo)
             self.saveModel()
         # with open(self.foldInfo+'measure.txt','w') as f:
         #     f.writelines(self.record)
